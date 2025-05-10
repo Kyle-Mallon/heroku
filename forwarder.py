@@ -71,12 +71,22 @@ async def get_chat_info(bot, chat_id):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /start command."""
-    welcome_text = (
-        "👋 Welcome to the Media Forwarder Bot!\n\n"
-        "I can help you forward media from one channel to another.\n\n"
-        "What would you like to do?"
-    )
-    await update.message.reply_text(welcome_text, reply_markup=get_main_menu())
+    try:
+        welcome_text = (
+            "👋 Welcome to the Media Forwarder Bot!\n\n"
+            "I can help you forward media from one channel to another.\n\n"
+            "What would you like to do?"
+        )
+        await update.message.reply_text(
+            welcome_text,
+            reply_markup=get_main_menu(),
+            parse_mode='Markdown'
+        )
+    except Exception as e:
+        logger.error(f"Error in start command: {str(e)}")
+        await update.message.reply_text(
+            "Sorry, there was an error starting the bot. Please try again later."
+        )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /help command."""
@@ -118,6 +128,40 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await status(update, context)
     elif query.data == 'help':
         await help_command(update, context)
+    elif query.data == 'cancel':
+        await query.message.edit_text("Operation cancelled.")
+    elif query.data.startswith('confirm_source_'):
+        chat_id = int(query.data.split('_')[2])
+        try:
+            chat = await context.bot.get_chat(chat_id)
+            config['source_channel'] = chat_id
+            save_config(config)
+            await query.message.edit_text(f"✅ Source channel set successfully to {chat.title}!")
+        except Exception as e:
+            await query.message.edit_text(f"❌ Error setting source channel: {str(e)}")
+    elif query.data.startswith('confirm_dest_'):
+        chat_id = int(query.data.split('_')[2])
+        try:
+            chat = await context.bot.get_chat(chat_id)
+            config['destination_channel'] = chat_id
+            save_config(config)
+            await query.message.edit_text(f"✅ Destination channel set successfully to {chat.title}!")
+        except Exception as e:
+            await query.message.edit_text(f"❌ Error setting destination channel: {str(e)}")
+    elif query.data == 'remove_source':
+        if config.get('source_channel'):
+            config['source_channel'] = None
+            save_config(config)
+            await query.message.edit_text("✅ Source channel removed successfully!")
+        else:
+            await query.message.edit_text("❌ No source channel set to remove.")
+    elif query.data == 'remove_dest':
+        if config.get('destination_channel'):
+            config['destination_channel'] = None
+            save_config(config)
+            await query.message.edit_text("✅ Destination channel removed successfully!")
+        else:
+            await query.message.edit_text("❌ No destination channel set to remove.")
 
 async def set_source(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle setting the source channel."""
