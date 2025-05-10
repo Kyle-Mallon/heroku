@@ -22,12 +22,13 @@ def setup_environment() -> None:
     # Ensure we're in the correct directory
     os.chdir(Path(__file__).parent)
     
-    # Enable tracemalloc for debugging
-    tracemalloc.start()
+    # Start tracemalloc with a limit of 25 frames
+    tracemalloc.start(25)
 
 def cleanup_environment() -> None:
     """Clean up resources."""
-    tracemalloc.stop()
+    if tracemalloc.is_tracing():
+        tracemalloc.stop()
 
 def main() -> None:
     """Main entry point for the worker."""
@@ -39,12 +40,16 @@ def main() -> None:
         sys.exit(0)
     except Exception as e:
         logger.error(f"Bot stopped due to error: {str(e)}")
-        # Print tracemalloc statistics
-        snapshot = tracemalloc.take_snapshot()
-        top_stats = snapshot.statistics('lineno')
-        logger.info("\nTop 10 memory allocations:")
-        for stat in top_stats[:10]:
-            logger.info(stat)
+        # Only take snapshot if tracemalloc is tracing
+        if tracemalloc.is_tracing():
+            try:
+                snapshot = tracemalloc.take_snapshot()
+                top_stats = snapshot.statistics('lineno')
+                logger.info("\nTop 10 memory allocations:")
+                for stat in top_stats[:10]:
+                    logger.info(stat)
+            except Exception as snapshot_error:
+                logger.error(f"Error taking memory snapshot: {str(snapshot_error)}")
         sys.exit(1)
     finally:
         cleanup_environment()
