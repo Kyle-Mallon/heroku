@@ -54,23 +54,22 @@ def create_application() -> Application:
 
 async def run_bot_with_retry() -> None:
     """Run the bot with retry logic."""
-    application = None
     while True:
         try:
-            if application is None:
-                # Create application
-                application = create_application()
-                # Start the bot
-                logger.info("Starting bot...")
-                await application.initialize()
-                await application.start()
+            # Create application
+            application = create_application()
+            
+            # Start the bot
+            logger.info("Starting bot...")
+            await application.initialize()
+            await application.start()
             
             # Run polling
             await application.run_polling(
                 allowed_updates=Update.ALL_TYPES,
-                drop_pending_updates=True,
-                close_loop=False
+                drop_pending_updates=True
             )
+            
         except (TimedOut, NetworkError) as e:
             logger.error(f"Network error occurred: {str(e)}")
             logger.info("Retrying in 5 seconds...")
@@ -80,25 +79,16 @@ async def run_bot_with_retry() -> None:
             logger.info("Retrying in 5 seconds...")
             await asyncio.sleep(5)
         finally:
-            if application:
-                try:
+            try:
+                if 'application' in locals():
                     await application.stop()
-                    application = None
-                except Exception as e:
-                    logger.error(f"Error stopping application: {str(e)}")
+            except Exception as e:
+                logger.error(f"Error stopping application: {str(e)}")
 
 def run_bot() -> None:
     """Run the bot."""
     try:
-        # Get or create event loop
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
-        # Run the bot
-        loop.run_until_complete(run_bot_with_retry())
+        asyncio.run(run_bot_with_retry())
     except KeyboardInterrupt:
         logger.info("Bot stopped by user")
     except Exception as e:
