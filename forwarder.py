@@ -313,7 +313,7 @@ async def setup_commands(application: Application):
     ]
     await application.bot.set_my_commands(commands)
 
-def main():
+async def main():
     """Start the bot."""
     try:
         # Create the Application with specific settings
@@ -343,17 +343,18 @@ def main():
         logger.info("Starting bot...")
         
         # Setup commands first
-        asyncio.run(setup_commands(application))
+        await setup_commands(application)
         
         # Run the bot
-        application.run_polling(
+        await application.initialize()
+        await application.start()
+        await application.run_polling(
             allowed_updates=Update.ALL_TYPES,
-            drop_pending_updates=True,  # Drop pending updates on startup
-            close_loop=False
+            drop_pending_updates=True  # Drop pending updates on startup
         )
     except Exception as e:
         logger.error(f"Error in main: {str(e)}")
         sys.exit(1)
 
 if __name__ == '__main__':
-    main() 
+    asyncio.run(main()) 
