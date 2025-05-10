@@ -104,19 +104,10 @@ async def run_bot_with_retry() -> None:
 def run_bot() -> None:
     """Run the bot."""
     try:
-        # Create new event loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        # Run the bot
-        loop.run_until_complete(run_bot_with_retry())
+        # Use asyncio.run which handles the event loop lifecycle
+        asyncio.run(run_bot_with_retry())
     except KeyboardInterrupt:
         logger.info("Bot stopped by user")
     except Exception as e:
         logger.error(f"Bot stopped due to error: {str(e)}")
-        raise
-    finally:
-        try:
-            loop.close()
-        except Exception as e:
-            logger.error(f"Error closing event loop: {str(e)}") 
+        raise 
