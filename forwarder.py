@@ -52,8 +52,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Welcome to the Media Forwarder Bot!\n\n"
         "Available commands:\n"
-        "/setsource - Set the source channel\n"
-        "/setdest - Set the destination channel\n"
+        "/setsource @channelname - Set the source channel\n"
+        "/setdest @channelname - Set the destination channel\n"
         "/status - Check current configuration\n"
         "/help - Show this help message"
     )
@@ -62,38 +62,72 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /help command."""
     await update.message.reply_text(
         "Available commands:\n"
-        "/setsource - Set the source channel\n"
-        "/setdest - Set the destination channel\n"
+        "/setsource @channelname - Set the source channel\n"
+        "/setdest @channelname - Set the destination channel\n"
         "/status - Check current configuration\n"
         "/help - Show this help message"
     )
 
 async def set_source(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle setting the source channel."""
-    if update.message.forward_from_chat:
-        try:
-            config['source_channel'] = update.message.forward_from_chat.id
-            save_config(config)
-            await update.message.reply_text(f"Source channel set successfully to {update.message.forward_from_chat.title}!")
-        except Exception as e:
-            await update.message.reply_text(f"Error setting source channel: {str(e)}")
-    else:
+    if not context.args:
         await update.message.reply_text(
-            "Please forward a message from the source channel to set it as the source."
+            "Please provide the channel link or username.\n"
+            "Example: /setsource @channelname or /setsource t.me/channelname"
+        )
+        return
+
+    channel_identifier = context.args[0].strip()
+    # Remove @ or t.me/ if present
+    if channel_identifier.startswith('@'):
+        channel_identifier = channel_identifier[1:]
+    elif 't.me/' in channel_identifier:
+        channel_identifier = channel_identifier.split('t.me/')[-1]
+
+    try:
+        # Try to get chat information
+        chat = await context.bot.get_chat(f"@{channel_identifier}")
+        if chat.type in ['channel', 'supergroup']:
+            config['source_channel'] = chat.id
+            save_config(config)
+            await update.message.reply_text(f"Source channel set successfully to {chat.title}!")
+        else:
+            await update.message.reply_text("Please provide a valid channel or supergroup.")
+    except Exception as e:
+        await update.message.reply_text(
+            f"Error setting source channel: {str(e)}\n"
+            "Make sure the channel is public and the bot is a member."
         )
 
 async def set_dest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle setting the destination channel."""
-    if update.message.forward_from_chat:
-        try:
-            config['destination_channel'] = update.message.forward_from_chat.id
-            save_config(config)
-            await update.message.reply_text(f"Destination channel set successfully to {update.message.forward_from_chat.title}!")
-        except Exception as e:
-            await update.message.reply_text(f"Error setting destination channel: {str(e)}")
-    else:
+    if not context.args:
         await update.message.reply_text(
-            "Please forward a message from the destination channel to set it as the destination."
+            "Please provide the channel link or username.\n"
+            "Example: /setdest @channelname or /setdest t.me/channelname"
+        )
+        return
+
+    channel_identifier = context.args[0].strip()
+    # Remove @ or t.me/ if present
+    if channel_identifier.startswith('@'):
+        channel_identifier = channel_identifier[1:]
+    elif 't.me/' in channel_identifier:
+        channel_identifier = channel_identifier.split('t.me/')[-1]
+
+    try:
+        # Try to get chat information
+        chat = await context.bot.get_chat(f"@{channel_identifier}")
+        if chat.type in ['channel', 'supergroup']:
+            config['destination_channel'] = chat.id
+            save_config(config)
+            await update.message.reply_text(f"Destination channel set successfully to {chat.title}!")
+        else:
+            await update.message.reply_text("Please provide a valid channel or supergroup.")
+    except Exception as e:
+        await update.message.reply_text(
+            f"Error setting destination channel: {str(e)}\n"
+            "Make sure the channel is public and the bot is a member."
         )
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
