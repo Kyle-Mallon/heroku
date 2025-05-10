@@ -54,6 +54,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Available commands:\n"
         "/setsource @channelname - Set the source channel\n"
         "/setdest @channelname - Set the destination channel\n"
+        "You can also use channel IDs (e.g., -1001234567890) for private channels\n"
         "/status - Check current configuration\n"
         "/help - Show this help message"
     )
@@ -64,6 +65,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Available commands:\n"
         "/setsource @channelname - Set the source channel\n"
         "/setdest @channelname - Set the destination channel\n"
+        "You can also use channel IDs (e.g., -1001234567890) for private channels\n"
         "/status - Check current configuration\n"
         "/help - Show this help message"
     )
@@ -72,21 +74,25 @@ async def set_source(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle setting the source channel."""
     if not context.args:
         await update.message.reply_text(
-            "Please provide the channel link or username.\n"
-            "Example: /setsource @channelname or /setsource t.me/channelname"
+            "Please provide the channel link, username, or ID.\n"
+            "Example: /setsource @channelname or /setsource t.me/channelname or /setsource -1001234567890"
         )
         return
 
     channel_identifier = context.args[0].strip()
-    # Remove @ or t.me/ if present
-    if channel_identifier.startswith('@'):
-        channel_identifier = channel_identifier[1:]
-    elif 't.me/' in channel_identifier:
-        channel_identifier = channel_identifier.split('t.me/')[-1]
-
+    
     try:
-        # Try to get chat information
-        chat = await context.bot.get_chat(f"@{channel_identifier}")
+        # Check if it's a channel ID (starts with -100)
+        if channel_identifier.startswith('-100'):
+            chat = await context.bot.get_chat(int(channel_identifier))
+        else:
+            # Remove @ or t.me/ if present
+            if channel_identifier.startswith('@'):
+                channel_identifier = channel_identifier[1:]
+            elif 't.me/' in channel_identifier:
+                channel_identifier = channel_identifier.split('t.me/')[-1]
+            chat = await context.bot.get_chat(f"@{channel_identifier}")
+
         if chat.type in ['channel', 'supergroup']:
             config['source_channel'] = chat.id
             save_config(config)
@@ -96,28 +102,32 @@ async def set_source(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(
             f"Error setting source channel: {str(e)}\n"
-            "Make sure the channel is public and the bot is a member."
+            "Make sure the bot is a member of the channel and has appropriate permissions."
         )
 
 async def set_dest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle setting the destination channel."""
     if not context.args:
         await update.message.reply_text(
-            "Please provide the channel link or username.\n"
-            "Example: /setdest @channelname or /setdest t.me/channelname"
+            "Please provide the channel link, username, or ID.\n"
+            "Example: /setdest @channelname or /setdest t.me/channelname or /setdest -1001234567890"
         )
         return
 
     channel_identifier = context.args[0].strip()
-    # Remove @ or t.me/ if present
-    if channel_identifier.startswith('@'):
-        channel_identifier = channel_identifier[1:]
-    elif 't.me/' in channel_identifier:
-        channel_identifier = channel_identifier.split('t.me/')[-1]
-
+    
     try:
-        # Try to get chat information
-        chat = await context.bot.get_chat(f"@{channel_identifier}")
+        # Check if it's a channel ID (starts with -100)
+        if channel_identifier.startswith('-100'):
+            chat = await context.bot.get_chat(int(channel_identifier))
+        else:
+            # Remove @ or t.me/ if present
+            if channel_identifier.startswith('@'):
+                channel_identifier = channel_identifier[1:]
+            elif 't.me/' in channel_identifier:
+                channel_identifier = channel_identifier.split('t.me/')[-1]
+            chat = await context.bot.get_chat(f"@{channel_identifier}")
+
         if chat.type in ['channel', 'supergroup']:
             config['destination_channel'] = chat.id
             save_config(config)
@@ -127,7 +137,7 @@ async def set_dest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(
             f"Error setting destination channel: {str(e)}\n"
-            "Make sure the channel is public and the bot is a member."
+            "Make sure the bot is a member of the channel and has appropriate permissions."
         )
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
