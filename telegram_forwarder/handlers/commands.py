@@ -35,14 +35,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "I can help you forward media from one channel to another.\n\n"
             "To get started:\n"
             "1. Add me to your destination channel\n"
-            "2. Mention me (@your_bot) in that channel\n"
+            "2. Mention me in that channel\n"
             "3. Set a source channel using /setsource\n\n"
             "What would you like to do?"
         )
         await update.message.reply_text(
             welcome_text,
-            reply_markup=get_main_menu(),
-            parse_mode='Markdown'
+            reply_markup=get_main_menu()
         )
     except Exception as e:
         logger.error(f"Error in start command: {str(e)}")
@@ -53,9 +52,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /help command."""
     help_text = (
-        "📚 *How to use this bot:*\n\n"
-        "1. Set a destination channel by mentioning the bot (@your_bot) in that channel\n"
-        "2. Set a source channel using `/setsource`\n"
+        "📚 How to use this bot:\n\n"
+        "1. Set a destination channel by mentioning the bot in that channel\n"
+        "2. Set a source channel using /setsource\n"
         "3. The bot will automatically forward media from source to destination\n\n"
         "You can also set channels using:\n"
         "• Channel username (e.g., @channelname)\n"
@@ -65,7 +64,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
     await update.message.reply_text(
         help_text,
-        parse_mode='Markdown',
         reply_markup=get_main_menu()
     )
 
@@ -164,19 +162,19 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     source = config.get('source_channel')
     dest = config.get('destination_channel')
     
-    status_text = "📊 *Current Configuration:*\n\n"
+    status_text = "📊 Current Configuration:\n\n"
     
     if source:
         source_info = await get_chat_info(context.bot, source)
-        status_text += f"📥 *Source Channel:*\n{source_info}\n\n"
+        status_text += f"📥 Source Channel:\n{source_info}\n\n"
     else:
-        status_text += "📥 *Source Channel:* Not set\n\n"
+        status_text += "📥 Source Channel: Not set\n\n"
     
     if dest:
         dest_info = await get_chat_info(context.bot, dest)
-        status_text += f"📤 *Destination Channel:*\n{dest_info}\n\n"
+        status_text += f"📤 Destination Channel:\n{dest_info}\n\n"
     else:
-        status_text += "📤 *Destination Channel:* Not set\n\n"
+        status_text += "📤 Destination Channel: Not set\n\n"
     
     # Add action buttons
     keyboard = [
@@ -193,6 +191,5 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     
     await update.message.reply_text(
         status_text,
-        parse_mode='Markdown',
         reply_markup=reply_markup
     ) 
