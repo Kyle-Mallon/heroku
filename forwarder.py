@@ -5,6 +5,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters, CallbackQueryHandler
 from dotenv import load_dotenv
 import json
+import asyncio
 
 # Configure logging
 logging.basicConfig(
@@ -323,9 +324,6 @@ def main():
             .build()
         )
 
-        # Setup commands
-        application.create_task(setup_commands(application))
-
         # Add handlers
         application.add_handler(CommandHandler("start", start))
         application.add_handler(CommandHandler("help", help_command))
@@ -343,6 +341,11 @@ def main():
 
         # Start the Bot with error handling
         logger.info("Starting bot...")
+        
+        # Setup commands first
+        asyncio.run(setup_commands(application))
+        
+        # Run the bot
         application.run_polling(
             allowed_updates=Update.ALL_TYPES,
             drop_pending_updates=True,  # Drop pending updates on startup
