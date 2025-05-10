@@ -4,16 +4,26 @@ A Telegram bot that forwards media from one channel to another.
 
 ## Quick Setup
 
-1. **Get Telegram API Credentials**
+1. **Install Heroku CLI on Windows**
+   ```bash
+   # Install Chocolatey (if not already installed)
+   # Open PowerShell as Administrator and run:
+   Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+   # Install Heroku CLI using Chocolatey
+   choco install heroku-cli
+   ```
+
+2. **Get Telegram API Credentials**
    - Go to https://my.telegram.org/auth
    - Log in with your phone number
    - Click on 'API development tools'
    - Create a new application
    - Save your `API_ID` and `API_HASH`
 
-2. **Deploy to Heroku**
+3. **Deploy to Heroku**
    ```bash
-   # Install Heroku CLI and login
+   # Login to Heroku
    heroku login
 
    # Create new Heroku app
@@ -34,7 +44,7 @@ A Telegram bot that forwards media from one channel to another.
    heroku ps:scale worker=1
    ```
 
-3. **Set Up Channels**
+4. **Set Up Channels**
    - Start a chat with your bot
    - Forward a message from the source channel to the bot
    - Reply with `/setsource`
