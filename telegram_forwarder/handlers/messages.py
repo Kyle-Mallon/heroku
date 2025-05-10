@@ -14,15 +14,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         # Check message entities for mentions
         if update.message and update.message.entities:
             for entity in update.message.entities:
-                if entity.type == 'mention' and entity.user and entity.user.id == context.bot.id:
+                if entity.type == 'text_mention' and entity.user and entity.user.id == context.bot.id:
                     bot_mentioned = True
                     break
-        
-        # Check message text for bot username
-        if not bot_mentioned and update.message and update.message.text:
-            bot_username = context.bot.username
-            if bot_username and f"@{bot_username}" in update.message.text:
-                bot_mentioned = True
+                elif entity.type == 'mention' and update.message.text:
+                    bot_username = context.bot.username
+                    if bot_username and update.message.text[entity.offset:entity.offset + entity.length] == f"@{bot_username}":
+                        bot_mentioned = True
+                        break
         
         if bot_mentioned:
             # Bot was mentioned, set this chat as destination
@@ -49,12 +48,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             return
 
         # Forward the message
-        await context.bot.copy_message(
-            chat_id=config['destination_channel'],
-            from_chat_id=update.effective_chat.id,
-            message_id=update.message.message_id
-        )
-        logger.info(f"Message {update.message.message_id} forwarded successfully")
+        if update.message.photo or update.message.video or update.message.document or update.message.audio:
+            await context.bot.copy_message(
+                chat_id=config['destination_channel'],
+                from_chat_id=update.effective_chat.id,
+                message_id=update.message.message_id
+            )
+            logger.info(f"Message {update.message.message_id} forwarded successfully")
+        else:
+            logger.info(f"Message {update.message.message_id} skipped (no media)")
     except Exception as e:
         logger.error(f"Error handling message: {str(e)}")
         # Try to notify the user about the error
