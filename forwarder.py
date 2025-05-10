@@ -123,25 +123,39 @@ async def forward_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     """Start the bot."""
-    # Create the Application
-    application = Application.builder().token(TOKEN).build()
+    try:
+        # Create the Application with specific settings
+        application = (
+            Application.builder()
+            .token(TOKEN)
+            .concurrent_updates(True)  # Enable concurrent updates
+            .build()
+        )
 
-    # Add handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("setsource", set_source))
-    application.add_handler(CommandHandler("setdest", set_dest))
-    application.add_handler(CommandHandler("status", status))
-    
-    # Add message handler for forwarding media
-    application.add_handler(MessageHandler(
-        filters.Chat(config.get('source_channel')) & 
-        (filters.PHOTO | filters.VIDEO | filters.Document.ALL),
-        forward_media
-    ))
+        # Add handlers
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("help", help_command))
+        application.add_handler(CommandHandler("setsource", set_source))
+        application.add_handler(CommandHandler("setdest", set_dest))
+        application.add_handler(CommandHandler("status", status))
+        
+        # Add message handler for forwarding media
+        application.add_handler(MessageHandler(
+            filters.Chat(config.get('source_channel')) & 
+            (filters.PHOTO | filters.VIDEO | filters.Document.ALL),
+            forward_media
+        ))
 
-    # Start the Bot
-    application.run_polling()
+        # Start the Bot with error handling
+        logger.info("Starting bot...")
+        application.run_polling(
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=True,  # Drop pending updates on startup
+            close_loop=False
+        )
+    except Exception as e:
+        logger.error(f"Error in main: {str(e)}")
+        sys.exit(1)
 
 if __name__ == '__main__':
     main() 
