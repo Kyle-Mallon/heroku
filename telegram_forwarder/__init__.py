@@ -53,8 +53,8 @@ def create_application() -> Application:
 
     return application
 
-async def run_bot_with_retry() -> None:
-    """Run the bot with retry logic."""
+async def run_bot() -> None:
+    """Run the bot."""
     application = None
     stop_event = asyncio.Event()
     
@@ -67,45 +67,37 @@ async def run_bot_with_retry() -> None:
     loop.add_signal_handler(signal.SIGTERM, signal_handler)
     loop.add_signal_handler(signal.SIGINT, signal_handler)
     
-    while not stop_event.is_set():
-        try:
-            # Create application
-            application = create_application()
-            
-            # Start the bot
-            logger.info("Starting bot...")
-            await application.initialize()
-            await application.start()
-            
-            # Run polling
-            await application.run_polling(
-                allowed_updates=Update.ALL_TYPES,
-                drop_pending_updates=True,
-                close_loop=False
-            )
-            
-        except (TimedOut, NetworkError) as e:
-            logger.error(f"Network error occurred: {str(e)}")
-            if not stop_event.is_set():
-                logger.info("Retrying in 5 seconds...")
-                await asyncio.sleep(5)
-        except Exception as e:
-            logger.error(f"Error running bot: {str(e)}")
-            if not stop_event.is_set():
-                logger.info("Retrying in 5 seconds...")
-                await asyncio.sleep(5)
-        finally:
-            if application:
-                try:
-                    await application.stop()
-                except Exception as e:
-                    logger.error(f"Error stopping application: {str(e)}")
+    try:
+        # Create application
+        application = create_application()
+        
+        # Start the bot
+        logger.info("Starting bot...")
+        await application.initialize()
+        await application.start()
+        
+        # Run polling
+        await application.run_polling(
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=True,
+            close_loop=False
+        )
+        
+    except Exception as e:
+        logger.error(f"Error running bot: {str(e)}")
+        raise
+    finally:
+        if application:
+            try:
+                await application.stop()
+            except Exception as e:
+                logger.error(f"Error stopping application: {str(e)}")
 
-def run_bot() -> None:
-    """Run the bot."""
+def main() -> None:
+    """Main entry point."""
     try:
         # Use asyncio.run which handles the event loop lifecycle
-        asyncio.run(run_bot_with_retry())
+        asyncio.run(run_bot())
     except KeyboardInterrupt:
         logger.info("Bot stopped by user")
     except Exception as e:

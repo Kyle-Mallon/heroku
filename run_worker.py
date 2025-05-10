@@ -1,7 +1,6 @@
 import os
 import sys
-import asyncio
-from telegram_forwarder import run_bot
+from telegram_forwarder import main
 
 if __name__ == "__main__":
     try:
@@ -9,7 +8,7 @@ if __name__ == "__main__":
         os.chdir(os.path.dirname(os.path.abspath(__file__)))
         
         # Run the bot
-        run_bot()
+        main()
     except KeyboardInterrupt:
         print("Bot stopped by user")
         sys.exit(0)
