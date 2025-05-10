@@ -1,8 +1,8 @@
 import os
 import logging
 import sys
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters, CallbackQueryHandler
 from dotenv import load_dotenv
 import json
 
@@ -47,28 +47,77 @@ def save_config(config):
 # Load initial configuration
 config = load_config()
 
+def get_main_menu():
+    """Get the main menu keyboard."""
+    keyboard = [
+        [
+            InlineKeyboardButton("Set Source Channel", callback_data='set_source'),
+            InlineKeyboardButton("Set Destination Channel", callback_data='set_dest')
+        ],
+        [
+            InlineKeyboardButton("Check Status", callback_data='status'),
+            InlineKeyboardButton("Help", callback_data='help')
+        ]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+async def get_chat_info(bot, chat_id):
+    """Get formatted chat information."""
+    try:
+        chat = await bot.get_chat(chat_id)
+        return f"📢 {chat.title}\nID: {chat_id}"
+    except Exception:
+        return f"ID: {chat_id}"
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /start command."""
-    await update.message.reply_text(
-        "Welcome to the Media Forwarder Bot!\n\n"
-        "Available commands:\n"
-        "/setsource @channelname - Set the source channel\n"
-        "/setdest @channelname - Set the destination channel\n"
-        "You can also use channel IDs (e.g., -1001234567890) for private channels\n"
-        "/status - Check current configuration\n"
-        "/help - Show this help message"
+    welcome_text = (
+        "👋 Welcome to the Media Forwarder Bot!\n\n"
+        "I can help you forward media from one channel to another.\n\n"
+        "What would you like to do?"
     )
+    await update.message.reply_text(welcome_text, reply_markup=get_main_menu())
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /help command."""
-    await update.message.reply_text(
-        "Available commands:\n"
-        "/setsource @channelname - Set the source channel\n"
-        "/setdest @channelname - Set the destination channel\n"
-        "You can also use channel IDs (e.g., -1001234567890) for private channels\n"
-        "/status - Check current configuration\n"
-        "/help - Show this help message"
+    help_text = (
+        "📚 *How to use this bot:*\n\n"
+        "1. Set a source channel using `/setsource`\n"
+        "2. Set a destination channel using `/setdest`\n"
+        "3. The bot will automatically forward media from source to destination\n\n"
+        "You can use:\n"
+        "• Channel username (e.g., @channelname)\n"
+        "• Channel link (e.g., t.me/channelname)\n"
+        "• Channel ID (e.g., -1001234567890)\n\n"
+        "Need help? Use the buttons below or type /start to see the main menu."
     )
+    await update.message.reply_text(help_text, parse_mode='Markdown', reply_markup=get_main_menu())
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle button presses."""
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == 'set_source':
+        await query.message.reply_text(
+            "Please provide the source channel:\n"
+            "• Username (e.g., @channelname)\n"
+            "• Link (e.g., t.me/channelname)\n"
+            "• ID (e.g., -1001234567890)\n\n"
+            "Use the command: /setsource [channel]"
+        )
+    elif query.data == 'set_dest':
+        await query.message.reply_text(
+            "Please provide the destination channel:\n"
+            "• Username (e.g., @channelname)\n"
+            "• Link (e.g., t.me/channelname)\n"
+            "• ID (e.g., -1001234567890)\n\n"
+            "Use the command: /setdest [channel]"
+        )
+    elif query.data == 'status':
+        await status(update, context)
+    elif query.data == 'help':
+        await help_command(update, context)
 
 async def set_source(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle setting the source channel."""
@@ -94,9 +143,19 @@ async def set_source(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat = await context.bot.get_chat(f"@{channel_identifier}")
 
         if chat.type in ['channel', 'supergroup']:
-            config['source_channel'] = chat.id
-            save_config(config)
-            await update.message.reply_text(f"Source channel set successfully to {chat.title}!")
+            # Create confirmation keyboard
+            keyboard = [
+                [
+                    InlineKeyboardButton("✅ Confirm", callback_data=f'confirm_source_{chat.id}'),
+                    InlineKeyboardButton("❌ Cancel", callback_data='cancel')
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await update.message.reply_text(
+                f"Are you sure you want to set {chat.title} as the source channel?",
+                reply_markup=reply_markup
+            )
         else:
             await update.message.reply_text("Please provide a valid channel or supergroup.")
     except Exception as e:
@@ -129,9 +188,19 @@ async def set_dest(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat = await context.bot.get_chat(f"@{channel_identifier}")
 
         if chat.type in ['channel', 'supergroup']:
-            config['destination_channel'] = chat.id
-            save_config(config)
-            await update.message.reply_text(f"Destination channel set successfully to {chat.title}!")
+            # Create confirmation keyboard
+            keyboard = [
+                [
+                    InlineKeyboardButton("✅ Confirm", callback_data=f'confirm_dest_{chat.id}'),
+                    InlineKeyboardButton("❌ Cancel", callback_data='cancel')
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await update.message.reply_text(
+                f"Are you sure you want to set {chat.title} as the destination channel?",
+                reply_markup=reply_markup
+            )
         else:
             await update.message.reply_text("Please provide a valid channel or supergroup.")
     except Exception as e:
@@ -142,14 +211,37 @@ async def set_dest(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /status command."""
-    source = config.get('source_channel', 'Not set')
-    dest = config.get('destination_channel', 'Not set')
+    source = config.get('source_channel')
+    dest = config.get('destination_channel')
     
-    await update.message.reply_text(
-        f"Current configuration:\n"
-        f"Source channel: {source}\n"
-        f"Destination channel: {dest}"
-    )
+    status_text = "📊 *Current Configuration:*\n\n"
+    
+    if source:
+        source_info = await get_chat_info(context.bot, source)
+        status_text += f"📥 *Source Channel:*\n{source_info}\n\n"
+    else:
+        status_text += "📥 *Source Channel:* Not set\n\n"
+    
+    if dest:
+        dest_info = await get_chat_info(context.bot, dest)
+        status_text += f"📤 *Destination Channel:*\n{dest_info}\n\n"
+    else:
+        status_text += "📤 *Destination Channel:* Not set\n\n"
+    
+    # Add action buttons
+    keyboard = [
+        [
+            InlineKeyboardButton("Set Source", callback_data='set_source'),
+            InlineKeyboardButton("Set Destination", callback_data='set_dest')
+        ],
+        [
+            InlineKeyboardButton("Remove Source", callback_data='remove_source'),
+            InlineKeyboardButton("Remove Destination", callback_data='remove_dest')
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(status_text, parse_mode='Markdown', reply_markup=reply_markup)
 
 async def forward_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Forward media messages from source to destination channel."""
@@ -165,6 +257,17 @@ async def forward_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.error(f"Error forwarding message: {str(e)}")
 
+async def setup_commands(application: Application):
+    """Setup bot commands with descriptions."""
+    commands = [
+        ("start", "Start the bot and see available commands"),
+        ("help", "Show help message"),
+        ("setsource", "Set source channel (use @channelname or -1001234567890)"),
+        ("setdest", "Set destination channel (use @channelname or -1001234567890)"),
+        ("status", "Check current channel configuration")
+    ]
+    await application.bot.set_my_commands(commands)
+
 def main():
     """Start the bot."""
     try:
@@ -176,12 +279,16 @@ def main():
             .build()
         )
 
+        # Setup commands
+        application.create_task(setup_commands(application))
+
         # Add handlers
         application.add_handler(CommandHandler("start", start))
         application.add_handler(CommandHandler("help", help_command))
         application.add_handler(CommandHandler("setsource", set_source))
         application.add_handler(CommandHandler("setdest", set_dest))
         application.add_handler(CommandHandler("status", status))
+        application.add_handler(CallbackQueryHandler(button_handler))
         
         # Add message handler for forwarding media
         application.add_handler(MessageHandler(
