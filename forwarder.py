@@ -70,30 +70,30 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def set_source(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle setting the source channel."""
-    if update.message.reply_to_message:
+    if update.message.forward_from_chat:
         try:
-            config['source_channel'] = update.message.reply_to_message.chat_id
+            config['source_channel'] = update.message.forward_from_chat.id
             save_config(config)
-            await update.message.reply_text("Source channel set successfully!")
+            await update.message.reply_text(f"Source channel set successfully to {update.message.forward_from_chat.title}!")
         except Exception as e:
             await update.message.reply_text(f"Error setting source channel: {str(e)}")
     else:
         await update.message.reply_text(
-            "Please reply to a message from the source channel with /setsource"
+            "Please forward a message from the source channel to set it as the source."
         )
 
 async def set_dest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle setting the destination channel."""
-    if update.message.reply_to_message:
+    if update.message.forward_from_chat:
         try:
-            config['destination_channel'] = update.message.reply_to_message.chat_id
+            config['destination_channel'] = update.message.forward_from_chat.id
             save_config(config)
-            await update.message.reply_text("Destination channel set successfully!")
+            await update.message.reply_text(f"Destination channel set successfully to {update.message.forward_from_chat.title}!")
         except Exception as e:
             await update.message.reply_text(f"Error setting destination channel: {str(e)}")
     else:
         await update.message.reply_text(
-            "Please reply to a message from the destination channel with /setdest"
+            "Please forward a message from the destination channel to set it as the destination."
         )
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
