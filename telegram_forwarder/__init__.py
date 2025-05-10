@@ -76,11 +76,19 @@ async def run_bot() -> None:
         loop.add_signal_handler(signal.SIGTERM, signal_handler)
         loop.add_signal_handler(signal.SIGINT, signal_handler)
         
-        # Run polling
-        await application.run_polling(
-            allowed_updates=Update.ALL_TYPES,
-            drop_pending_updates=True,
-            close_loop=False
+        # Create polling task
+        polling_task = asyncio.create_task(
+            application.run_polling(
+                allowed_updates=Update.ALL_TYPES,
+                drop_pending_updates=True,
+                close_loop=False
+            )
+        )
+        
+        # Wait for stop event or polling task
+        await asyncio.wait(
+            [polling_task, asyncio.create_task(stop_event.wait())],
+            return_when=asyncio.FIRST_COMPLETED
         )
         
     except Exception as e:
