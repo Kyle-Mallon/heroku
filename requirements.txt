@@ -1,4 +1,5 @@
 # Dependencies
 python-telegram-bot==20.7
 python-dotenv==1.0.0
-setuptools>=65.5.1 
+setuptools>=65.5.1
+nest-asyncio==1.6.0 

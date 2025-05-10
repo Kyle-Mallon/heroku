@@ -1,30 +1,63 @@
+"""
+Command handlers for the Telegram bot.
+Handles user commands and channel configuration.
+"""
+
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from typing import Optional, Tuple
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Chat
 from telegram.ext import ContextTypes
+from telegram.constants import ChatType
 from ..utils.config import config, save_config
 
 logger = logging.getLogger(__name__)
 
-def get_main_menu() -> InlineKeyboardMarkup:
-    """Get the main menu keyboard."""
+def create_keyboard(buttons: list) -> InlineKeyboardMarkup:
+    """
+    Create an inline keyboard with the given buttons.
+    
+    Args:
+        buttons: List of button rows, where each row is a list of (text, callback_data) tuples
+        
+    Returns:
+        InlineKeyboardMarkup: The created keyboard
+    """
     keyboard = [
-        [
-            InlineKeyboardButton("Set Source Channel", callback_data='set_source'),
-            InlineKeyboardButton("Set Destination Channel", callback_data='set_dest')
-        ],
-        [
-            InlineKeyboardButton("Check Status", callback_data='status'),
-            InlineKeyboardButton("Help", callback_data='help')
-        ]
+        [InlineKeyboardButton(text, callback_data=data) for text, data in row]
+        for row in buttons
     ]
     return InlineKeyboardMarkup(keyboard)
 
+def get_main_menu() -> InlineKeyboardMarkup:
+    """Get the main menu keyboard."""
+    buttons = [
+        [
+            ("Set Source Channel", 'set_source'),
+            ("Set Destination Channel", 'set_dest')
+        ],
+        [
+            ("Check Status", 'status'),
+            ("Help", 'help')
+        ]
+    ]
+    return create_keyboard(buttons)
+
 async def get_chat_info(bot, chat_id: int) -> str:
-    """Get formatted chat information."""
+    """
+    Get formatted chat information.
+    
+    Args:
+        bot: The bot instance
+        chat_id: The chat ID to get info for
+        
+    Returns:
+        str: Formatted chat information
+    """
     try:
         chat = await bot.get_chat(chat_id)
         return f"📢 {chat.title}\nID: {chat_id}"
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error getting chat info: {str(e)}")
         return f"ID: {chat_id}"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -67,95 +100,88 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         reply_markup=get_main_menu()
     )
 
-async def set_source(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle setting the source channel."""
+async def parse_channel_identifier(identifier: str, bot) -> Optional[Chat]:
+    """
+    Parse a channel identifier and get the chat object.
+    
+    Args:
+        identifier: The channel identifier (username, link, or ID)
+        bot: The bot instance
+        
+    Returns:
+        Optional[Chat]: The chat object if found, None otherwise
+    """
+    try:
+        # Handle channel ID
+        if identifier.startswith('-100'):
+            return await bot.get_chat(int(identifier))
+            
+        # Handle username or link
+        if identifier.startswith('@'):
+            identifier = identifier[1:]
+        elif 't.me/' in identifier:
+            identifier = identifier.split('t.me/')[-1]
+            
+        return await bot.get_chat(f"@{identifier}")
+    except Exception as e:
+        logger.error(f"Error parsing channel identifier: {str(e)}")
+        return None
+
+async def set_channel(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    channel_type: str
+) -> None:
+    """
+    Handle setting a channel (source or destination).
+    
+    Args:
+        update: The update object
+        context: The context object
+        channel_type: Either 'source' or 'dest'
+    """
     if not context.args:
         await update.message.reply_text(
-            "Please provide the channel link, username, or ID.\n"
-            "Example: /setsource @channelname or /setsource t.me/channelname or /setsource -1001234567890"
+            f"Please provide the channel link, username, or ID.\n"
+            f"Example: /set{channel_type} @channelname or /set{channel_type} t.me/channelname"
         )
         return
 
     channel_identifier = context.args[0].strip()
+    chat = await parse_channel_identifier(channel_identifier, context.bot)
     
-    try:
-        # Check if it's a channel ID (starts with -100)
-        if channel_identifier.startswith('-100'):
-            chat = await context.bot.get_chat(int(channel_identifier))
-        else:
-            # Remove @ or t.me/ if present
-            if channel_identifier.startswith('@'):
-                channel_identifier = channel_identifier[1:]
-            elif 't.me/' in channel_identifier:
-                channel_identifier = channel_identifier.split('t.me/')[-1]
-            chat = await context.bot.get_chat(f"@{channel_identifier}")
-
-        if chat.type in ['channel', 'supergroup']:
-            # Create confirmation keyboard
-            keyboard = [
-                [
-                    InlineKeyboardButton("✅ Confirm", callback_data=f'confirm_source_{chat.id}'),
-                    InlineKeyboardButton("❌ Cancel", callback_data='cancel')
-                ]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            await update.message.reply_text(
-                f"Are you sure you want to set {chat.title} as the source channel?",
-                reply_markup=reply_markup
-            )
-        else:
-            await update.message.reply_text("Please provide a valid channel or supergroup.")
-    except Exception as e:
+    if not chat:
         await update.message.reply_text(
-            f"Error setting source channel: {str(e)}\n"
+            f"Error setting {channel_type} channel.\n"
             "Make sure the bot is a member of the channel and has appropriate permissions."
         )
+        return
+        
+    if chat.type not in [ChatType.CHANNEL, ChatType.SUPERGROUP]:
+        await update.message.reply_text("Please provide a valid channel or supergroup.")
+        return
+        
+    # Create confirmation keyboard
+    buttons = [
+        [
+            ("✅ Confirm", f'confirm_{channel_type}_{chat.id}'),
+            ("❌ Cancel", 'cancel')
+        ]
+    ]
+    reply_markup = create_keyboard(buttons)
+    
+    await update.message.reply_text(
+        f"Are you sure you want to set {chat.title} as the {channel_type} channel?",
+        reply_markup=reply_markup
+    )
+
+async def set_source(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle setting the source channel."""
+    await set_channel(update, context, 'source')
 
 async def set_dest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle setting the destination channel."""
-    if not context.args:
-        await update.message.reply_text(
-            "Please provide the channel link, username, or ID.\n"
-            "Example: /setdest @channelname or /setdest t.me/channelname or /setdest -1001234567890"
-        )
-        return
-
-    channel_identifier = context.args[0].strip()
-    
-    try:
-        # Check if it's a channel ID (starts with -100)
-        if channel_identifier.startswith('-100'):
-            chat = await context.bot.get_chat(int(channel_identifier))
-        else:
-            # Remove @ or t.me/ if present
-            if channel_identifier.startswith('@'):
-                channel_identifier = channel_identifier[1:]
-            elif 't.me/' in channel_identifier:
-                channel_identifier = channel_identifier.split('t.me/')[-1]
-            chat = await context.bot.get_chat(f"@{channel_identifier}")
-
-        if chat.type in ['channel', 'supergroup']:
-            # Create confirmation keyboard
-            keyboard = [
-                [
-                    InlineKeyboardButton("✅ Confirm", callback_data=f'confirm_dest_{chat.id}'),
-                    InlineKeyboardButton("❌ Cancel", callback_data='cancel')
-                ]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            await update.message.reply_text(
-                f"Are you sure you want to set {chat.title} as the destination channel?",
-                reply_markup=reply_markup
-            )
-        else:
-            await update.message.reply_text("Please provide a valid channel or supergroup.")
-    except Exception as e:
-        await update.message.reply_text(
-            f"Error setting destination channel: {str(e)}\n"
-            "Make sure the bot is a member of the channel and has appropriate permissions."
-        )
+    await set_channel(update, context, 'dest')
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /status command."""
@@ -164,30 +190,32 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     
     status_text = "📊 Current Configuration:\n\n"
     
+    # Add source channel info
     if source:
         source_info = await get_chat_info(context.bot, source)
         status_text += f"📥 Source Channel:\n{source_info}\n\n"
     else:
         status_text += "📥 Source Channel: Not set\n\n"
     
+    # Add destination channel info
     if dest:
         dest_info = await get_chat_info(context.bot, dest)
         status_text += f"📤 Destination Channel:\n{dest_info}\n\n"
     else:
         status_text += "📤 Destination Channel: Not set\n\n"
     
-    # Add action buttons
-    keyboard = [
+    # Create status keyboard
+    buttons = [
         [
-            InlineKeyboardButton("Set Source", callback_data='set_source'),
-            InlineKeyboardButton("Set Destination", callback_data='set_dest')
+            ("Set Source", 'set_source'),
+            ("Set Destination", 'set_dest')
         ],
         [
-            InlineKeyboardButton("Remove Source", callback_data='remove_source'),
-            InlineKeyboardButton("Remove Destination", callback_data='remove_dest')
+            ("Remove Source", 'remove_source'),
+            ("Remove Destination", 'remove_dest')
         ]
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    reply_markup = create_keyboard(buttons)
     
     await update.message.reply_text(
         status_text,

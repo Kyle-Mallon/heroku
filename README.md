@@ -1,67 +1,108 @@
-# Telegram Media Forwarder
+# Telegram Media Forwarder Bot
 
-A Telegram bot that forwards media from one channel to another.
+A Telegram bot that forwards media messages from one channel to another. Built with python-telegram-bot and designed for easy deployment on Heroku.
 
-## Quick Setup
+## Features
 
-1. **Install Heroku CLI on Windows**
-   ```bash
-   # Install Chocolatey (if not already installed)
-   # Open PowerShell as Administrator and run:
-   Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+- Forward media messages between channels
+- Support for photos, videos, documents, and audio
+- Easy channel configuration through commands
+- Interactive menu with buttons
+- Robust error handling and logging
+- Automatic retry on network issues
 
-   # Install Heroku CLI using Chocolatey
-   choco install heroku-cli
-   ```
+## Prerequisites
 
-2. **Get Telegram API Credentials**
-   - Go to https://my.telegram.org/auth
-   - Log in with your phone number
-   - Click on 'API development tools'
-   - Create a new application
-   - Save your `API_ID` and `API_HASH`
+- Python 3.8 or higher
+- A Telegram bot token (get it from [@BotFather](https://t.me/BotFather))
+- Heroku account (for deployment)
 
-3. **Deploy to Heroku**
-   ```bash
-   # Login to Heroku
-   heroku login
+## Installation
 
-   # Create new Heroku app
-   heroku create your-app-name
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/telegram_forwarder.git
+cd telegram_forwarder
+```
 
-   # Set your Telegram credentials
-   heroku config:set API_ID=your_api_id
-   heroku config:set API_HASH=your_api_hash
-   heroku config:set PHONE=your_phone_number
+2. Create and activate a virtual environment:
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+```
 
-   # Deploy the bot
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git push heroku main
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-   # Start the bot
-   heroku ps:scale worker=1
-   ```
+## Configuration
 
-4. **Set Up Channels**
-   - Start a chat with your bot
-   - Forward a message from the source channel to the bot
-   - Reply with `/setsource`
-   - Forward a message from the destination channel to the bot
-   - Reply with `/setdest`
+1. Create a `.env` file in the project root:
+```
+BOT_TOKEN=your_bot_token_here
+```
 
-## Available Commands
+2. Set up your Heroku environment variables:
+```bash
+heroku config:set BOT_TOKEN=your_bot_token_here
+```
 
-- `/start` - Show welcome message
-- `/help` - Show help message
-- `/setsource` - Set source channel
-- `/setdest` - Set destination channel
-- `/status` - Check current settings
+## Usage
 
-## Important Notes
+1. Start the bot:
+```bash
+python run_worker.py
+```
 
-- The bot will forward all media (photos, videos, documents)
-- You need to be a member of both channels
-- You need posting permissions in the destination channel
-- The bot will need to re-authenticate if Heroku restarts 
+2. Add the bot to your channels with admin privileges
+
+3. Configure the channels:
+   - Mention the bot in the destination channel
+   - Use `/setsource` to set the source channel
+   - Use `/setdest` to set the destination channel
+   - Use `/status` to check current configuration
+   - Use `/help` for more information
+
+## Deployment
+
+1. Create a new Heroku app:
+```bash
+heroku create your-app-name
+```
+
+2. Deploy to Heroku:
+```bash
+git push heroku main
+```
+
+3. Start the worker:
+```bash
+heroku ps:scale worker=1
+```
+
+## Development
+
+- The project uses Python 3.8+ features
+- Follows PEP 8 style guide
+- Uses type hints for better code quality
+- Includes comprehensive error handling
+- Uses logging for debugging
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot)
+- [python-dotenv](https://github.com/theskumar/python-dotenv)
+- [nest-asyncio](https://github.com/erdewit/nest_asyncio) 
