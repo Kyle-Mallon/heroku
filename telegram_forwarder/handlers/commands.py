@@ -33,6 +33,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         welcome_text = (
             "👋 Welcome to the Media Forwarder Bot!\n\n"
             "I can help you forward media from one channel to another.\n\n"
+            "To get started:\n"
+            "1. Add me to your destination channel\n"
+            "2. Mention me (@your_bot) in that channel\n"
+            "3. Set a source channel using /setsource\n\n"
             "What would you like to do?"
         )
         await update.message.reply_text(
@@ -50,10 +54,10 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     """Handle the /help command."""
     help_text = (
         "📚 *How to use this bot:*\n\n"
-        "1. Set a source channel using `/setsource`\n"
-        "2. Set a destination channel using `/setdest`\n"
+        "1. Set a destination channel by mentioning the bot (@your_bot) in that channel\n"
+        "2. Set a source channel using `/setsource`\n"
         "3. The bot will automatically forward media from source to destination\n\n"
-        "You can use:\n"
+        "You can also set channels using:\n"
         "• Channel username (e.g., @channelname)\n"
         "• Channel link (e.g., t.me/channelname)\n"
         "• Channel ID (e.g., -1001234567890)\n\n"
