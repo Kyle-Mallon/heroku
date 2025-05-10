@@ -136,7 +136,7 @@ def main():
     # Add message handler for forwarding media
     application.add_handler(MessageHandler(
         filters.Chat(config.get('source_channel')) & 
-        (filters.PHOTO | filters.VIDEO | filters.DOCUMENT),
+        (filters.PHOTO | filters.VIDEO | filters.Document.ALL),
         forward_media
     ))
 
