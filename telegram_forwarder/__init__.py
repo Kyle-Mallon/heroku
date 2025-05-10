@@ -57,20 +57,18 @@ async def run_bot_with_retry() -> None:
     application = None
     while True:
         try:
-            if application is None:
-                # Create application
-                application = create_application()
-                
-                # Start the bot
-                logger.info("Starting bot...")
-                await application.initialize()
-                await application.start()
+            # Create application
+            application = create_application()
+            
+            # Start the bot
+            logger.info("Starting bot...")
+            await application.initialize()
+            await application.start()
             
             # Run polling
             await application.run_polling(
                 allowed_updates=Update.ALL_TYPES,
-                drop_pending_updates=True,
-                close_loop=False
+                drop_pending_updates=True
             )
             
         except (TimedOut, NetworkError) as e:
@@ -85,27 +83,16 @@ async def run_bot_with_retry() -> None:
             if application:
                 try:
                     await application.stop()
-                    application = None
                 except Exception as e:
                     logger.error(f"Error stopping application: {str(e)}")
 
 def run_bot() -> None:
     """Run the bot."""
-    loop = None
     try:
-        # Create new event loop
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        # Run the bot
-        loop.run_until_complete(run_bot_with_retry())
+        # Use asyncio.run which handles the event loop lifecycle
+        asyncio.run(run_bot_with_retry())
     except KeyboardInterrupt:
         logger.info("Bot stopped by user")
     except Exception as e:
         logger.error(f"Bot stopped due to error: {str(e)}")
-        raise
-    finally:
-        if loop and loop.is_running():
-            loop.stop()
-        if loop and not loop.is_closed():
-            loop.close() 
+        raise 
