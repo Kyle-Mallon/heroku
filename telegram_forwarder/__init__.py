@@ -57,13 +57,14 @@ async def run_bot_with_retry() -> None:
     application = None
     while True:
         try:
-            # Create application
-            application = create_application()
-            
-            # Start the bot
-            logger.info("Starting bot...")
-            await application.initialize()
-            await application.start()
+            if application is None:
+                # Create application
+                application = create_application()
+                
+                # Start the bot
+                logger.info("Starting bot...")
+                await application.initialize()
+                await application.start()
             
             # Run polling
             await application.run_polling(
@@ -84,18 +85,17 @@ async def run_bot_with_retry() -> None:
             if application:
                 try:
                     await application.stop()
+                    application = None
                 except Exception as e:
                     logger.error(f"Error stopping application: {str(e)}")
 
 def run_bot() -> None:
     """Run the bot."""
+    loop = None
     try:
-        # Get or create event loop
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        # Create new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         
         # Run the bot
         loop.run_until_complete(run_bot_with_retry())
@@ -105,7 +105,7 @@ def run_bot() -> None:
         logger.error(f"Bot stopped due to error: {str(e)}")
         raise
     finally:
-        try:
-            loop.close()
-        except Exception as e:
-            logger.error(f"Error closing event loop: {str(e)}") 
+        if loop and loop.is_running():
+            loop.stop()
+        if loop and not loop.is_closed():
+            loop.close() 
