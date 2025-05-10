@@ -1,8 +1,8 @@
 import os
 import logging
 import sys
-from telethon import TelegramClient, events
-from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from dotenv import load_dotenv
 import json
 
@@ -17,18 +17,11 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-# Telegram API credentials
-API_ID = os.getenv('API_ID')
-API_HASH = os.getenv('API_HASH')
-PHONE = os.getenv('PHONE')
-
-# Validate required environment variables
-if not all([API_ID, API_HASH, PHONE]):
-    logger.error("Missing required environment variables. Please set API_ID, API_HASH, and PHONE.")
+# Bot token
+TOKEN = os.getenv('BOT_TOKEN')
+if not TOKEN:
+    logger.error("Missing BOT_TOKEN environment variable")
     sys.exit(1)
-
-# Initialize the client
-client = TelegramClient('forwarder_session', API_ID, API_HASH)
 
 # Configuration storage
 CONFIG_FILE = 'channel_config.json'
@@ -54,10 +47,9 @@ def save_config(config):
 # Load initial configuration
 config = load_config()
 
-@client.on(events.NewMessage(pattern='/start'))
-async def start_handler(event):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /start command."""
-    await event.respond(
+    await update.message.reply_text(
         "Welcome to the Media Forwarder Bot!\n\n"
         "Available commands:\n"
         "/setsource - Set the source channel\n"
@@ -66,10 +58,9 @@ async def start_handler(event):
         "/help - Show this help message"
     )
 
-@client.on(events.NewMessage(pattern='/help'))
-async def help_handler(event):
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /help command."""
-    await event.respond(
+    await update.message.reply_text(
         "Available commands:\n"
         "/setsource - Set the source channel\n"
         "/setdest - Set the destination channel\n"
@@ -77,84 +68,80 @@ async def help_handler(event):
         "/help - Show this help message"
     )
 
-@client.on(events.NewMessage(pattern='/setsource'))
-async def set_source_handler(event):
+async def set_source(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle setting the source channel."""
-    if event.is_reply:
+    if update.message.reply_to_message:
         try:
-            # Get the channel from the replied message
-            source_channel = await event.get_reply_message()
-            config['source_channel'] = source_channel.chat_id
+            config['source_channel'] = update.message.reply_to_message.chat_id
             save_config(config)
-            await event.respond(f"Source channel set successfully!")
+            await update.message.reply_text("Source channel set successfully!")
         except Exception as e:
-            await event.respond(f"Error setting source channel: {str(e)}")
+            await update.message.reply_text(f"Error setting source channel: {str(e)}")
     else:
-        await event.respond(
+        await update.message.reply_text(
             "Please reply to a message from the source channel with /setsource"
         )
 
-@client.on(events.NewMessage(pattern='/setdest'))
-async def set_dest_handler(event):
+async def set_dest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle setting the destination channel."""
-    if event.is_reply:
+    if update.message.reply_to_message:
         try:
-            # Get the channel from the replied message
-            dest_channel = await event.get_reply_message()
-            config['destination_channel'] = dest_channel.chat_id
+            config['destination_channel'] = update.message.reply_to_message.chat_id
             save_config(config)
-            await event.respond(f"Destination channel set successfully!")
+            await update.message.reply_text("Destination channel set successfully!")
         except Exception as e:
-            await event.respond(f"Error setting destination channel: {str(e)}")
+            await update.message.reply_text(f"Error setting destination channel: {str(e)}")
     else:
-        await event.respond(
+        await update.message.reply_text(
             "Please reply to a message from the destination channel with /setdest"
         )
 
-@client.on(events.NewMessage(pattern='/status'))
-async def status_handler(event):
+async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the /status command."""
     source = config.get('source_channel', 'Not set')
     dest = config.get('destination_channel', 'Not set')
     
-    await event.respond(
+    await update.message.reply_text(
         f"Current configuration:\n"
         f"Source channel: {source}\n"
         f"Destination channel: {dest}"
     )
 
-@client.on(events.NewMessage(chats=config.get('source_channel')))
-async def forward_media(event):
+async def forward_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Forward media messages from source to destination channel."""
     if not config.get('source_channel') or not config.get('destination_channel'):
         return
         
     try:
         # Check if the message contains media
-        if event.media:
+        if update.message.photo or update.message.video or update.message.document:
             # Forward the message to the destination channel
-            await client.forward_messages(
-                config['destination_channel'],
-                event.message
-            )
-            logger.info(f"Forwarded message ID: {event.message.id}")
+            await update.message.forward(chat_id=config['destination_channel'])
+            logger.info(f"Forwarded message ID: {update.message.message_id}")
     except Exception as e:
         logger.error(f"Error forwarding message: {str(e)}")
 
-async def main():
-    """Main function to start the userbot."""
-    logger.info("Starting the forwarder bot...")
+def main():
+    """Start the bot."""
+    # Create the Application
+    application = Application.builder().token(TOKEN).build()
+
+    # Add handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("setsource", set_source))
+    application.add_handler(CommandHandler("setdest", set_dest))
+    application.add_handler(CommandHandler("status", status))
     
-    # Keep the script running
-    await client.run_until_disconnected()
+    # Add message handler for forwarding media
+    application.add_handler(MessageHandler(
+        filters.Chat(config.get('source_channel')) & 
+        (filters.PHOTO | filters.VIDEO | filters.DOCUMENT),
+        forward_media
+    ))
+
+    # Start the Bot
+    application.run_polling()
 
 if __name__ == '__main__':
-    try:
-        # Start the client
-        client.start()
-        
-        # Run the main function
-        client.loop.run_until_complete(main())
-    except Exception as e:
-        logger.error(f"Fatal error: {str(e)}")
-        sys.exit(1) 
+    main() 
