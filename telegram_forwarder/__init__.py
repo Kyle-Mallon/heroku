@@ -1,6 +1,7 @@
 import logging
 import os
 import asyncio
+from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 from telegram.error import TimedOut, NetworkError
 from dotenv import load_dotenv
