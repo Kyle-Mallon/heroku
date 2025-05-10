@@ -1,6 +1,8 @@
 import logging
 import os
+import asyncio
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
+from telegram.error import TimedOut, NetworkError
 from dotenv import load_dotenv
 from .handlers.commands import start, help_command, set_source, set_dest, status
 from .handlers.callbacks import button_handler
@@ -23,8 +25,16 @@ def create_application() -> Application:
     if not token:
         raise ValueError("No BOT_TOKEN found in environment variables")
 
-    # Create application
-    application = Application.builder().token(token).build()
+    # Create application with custom request settings
+    application = (
+        Application.builder()
+        .token(token)
+        .connect_timeout(30.0)  # Increase connection timeout
+        .read_timeout(30.0)     # Increase read timeout
+        .write_timeout(30.0)    # Increase write timeout
+        .pool_timeout(30.0)     # Increase pool timeout
+        .build()
+    )
 
     # Add command handlers
     application.add_handler(CommandHandler("start", start))
@@ -41,15 +51,42 @@ def create_application() -> Application:
 
     return application
 
+async def run_bot_with_retry() -> None:
+    """Run the bot with retry logic."""
+    while True:
+        try:
+            # Create application
+            application = create_application()
+
+            # Start the bot
+            logger.info("Starting bot...")
+            await application.initialize()
+            await application.start()
+            await application.run_polling(
+                allowed_updates=Update.ALL_TYPES,
+                drop_pending_updates=True,
+                close_loop=False
+            )
+        except (TimedOut, NetworkError) as e:
+            logger.error(f"Network error occurred: {str(e)}")
+            logger.info("Retrying in 5 seconds...")
+            await asyncio.sleep(5)
+        except Exception as e:
+            logger.error(f"Error running bot: {str(e)}")
+            logger.info("Retrying in 5 seconds...")
+            await asyncio.sleep(5)
+        finally:
+            try:
+                await application.stop()
+            except Exception as e:
+                logger.error(f"Error stopping application: {str(e)}")
+
 def run_bot() -> None:
     """Run the bot."""
     try:
-        # Create application
-        application = create_application()
-
-        # Start the bot
-        logger.info("Starting bot...")
-        application.run_polling()
+        asyncio.run(run_bot_with_retry())
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user")
     except Exception as e:
-        logger.error(f"Error running bot: {str(e)}")
+        logger.error(f"Bot stopped due to error: {str(e)}")
         raise 
