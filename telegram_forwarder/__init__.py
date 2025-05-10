@@ -62,11 +62,6 @@ async def run_bot() -> None:
         logger.info("Received shutdown signal")
         stop_event.set()
     
-    # Set up signal handlers
-    loop = asyncio.get_running_loop()
-    loop.add_signal_handler(signal.SIGTERM, signal_handler)
-    loop.add_signal_handler(signal.SIGINT, signal_handler)
-    
     try:
         # Create application
         application = create_application()
@@ -75,6 +70,11 @@ async def run_bot() -> None:
         logger.info("Starting bot...")
         await application.initialize()
         await application.start()
+        
+        # Set up signal handlers
+        loop = asyncio.get_running_loop()
+        loop.add_signal_handler(signal.SIGTERM, signal_handler)
+        loop.add_signal_handler(signal.SIGINT, signal_handler)
         
         # Run polling
         await application.run_polling(
@@ -96,10 +96,20 @@ async def run_bot() -> None:
 def main() -> None:
     """Main entry point."""
     try:
-        # Use asyncio.run which handles the event loop lifecycle
-        asyncio.run(run_bot())
+        # Create new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # Run the bot
+        loop.run_until_complete(run_bot())
     except KeyboardInterrupt:
         logger.info("Bot stopped by user")
     except Exception as e:
         logger.error(f"Bot stopped due to error: {str(e)}")
-        raise 
+        raise
+    finally:
+        try:
+            # Clean up the event loop
+            loop.close()
+        except Exception as e:
+            logger.error(f"Error closing event loop: {str(e)}") 
