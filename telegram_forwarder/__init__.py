@@ -1,6 +1,7 @@
 import logging
 import os
 import asyncio
+import signal
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 from telegram.error import TimedOut, NetworkError
@@ -55,7 +56,18 @@ def create_application() -> Application:
 async def run_bot_with_retry() -> None:
     """Run the bot with retry logic."""
     application = None
-    while True:
+    stop_event = asyncio.Event()
+    
+    def signal_handler():
+        logger.info("Received shutdown signal")
+        stop_event.set()
+    
+    # Set up signal handlers
+    loop = asyncio.get_running_loop()
+    loop.add_signal_handler(signal.SIGTERM, signal_handler)
+    loop.add_signal_handler(signal.SIGINT, signal_handler)
+    
+    while not stop_event.is_set():
         try:
             # Create application
             application = create_application()
@@ -68,17 +80,20 @@ async def run_bot_with_retry() -> None:
             # Run polling
             await application.run_polling(
                 allowed_updates=Update.ALL_TYPES,
-                drop_pending_updates=True
+                drop_pending_updates=True,
+                close_loop=False
             )
             
         except (TimedOut, NetworkError) as e:
             logger.error(f"Network error occurred: {str(e)}")
-            logger.info("Retrying in 5 seconds...")
-            await asyncio.sleep(5)
+            if not stop_event.is_set():
+                logger.info("Retrying in 5 seconds...")
+                await asyncio.sleep(5)
         except Exception as e:
             logger.error(f"Error running bot: {str(e)}")
-            logger.info("Retrying in 5 seconds...")
-            await asyncio.sleep(5)
+            if not stop_event.is_set():
+                logger.info("Retrying in 5 seconds...")
+                await asyncio.sleep(5)
         finally:
             if application:
                 try:
@@ -89,10 +104,19 @@ async def run_bot_with_retry() -> None:
 def run_bot() -> None:
     """Run the bot."""
     try:
-        # Use asyncio.run which handles the event loop lifecycle
-        asyncio.run(run_bot_with_retry())
+        # Create new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # Run the bot
+        loop.run_until_complete(run_bot_with_retry())
     except KeyboardInterrupt:
         logger.info("Bot stopped by user")
     except Exception as e:
         logger.error(f"Bot stopped due to error: {str(e)}")
-        raise 
+        raise
+    finally:
+        try:
+            loop.close()
+        except Exception as e:
+            logger.error(f"Error closing event loop: {str(e)}") 
