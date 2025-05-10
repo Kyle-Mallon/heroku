@@ -9,22 +9,35 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     """Handle incoming messages and forward them if conditions are met."""
     try:
         # Check if bot was mentioned in the message
+        bot_mentioned = False
+        
+        # Check message entities for mentions
         if update.message and update.message.entities:
             for entity in update.message.entities:
                 if entity.type == 'mention' and entity.user and entity.user.id == context.bot.id:
-                    # Bot was mentioned, set this chat as destination
-                    chat = update.effective_chat
-                    if chat.type in ['channel', 'supergroup', 'group']:
-                        config['destination_channel'] = chat.id
-                        save_config(config)
-                        await update.message.reply_text(
-                            f"✅ This {chat.type} has been set as the destination channel!\n\n"
-                            "Now you can set a source channel using:\n"
-                            "• /setsource @channelname\n"
-                            "• /setsource t.me/channelname\n"
-                            "• /setsource -1001234567890"
-                        )
-                        return
+                    bot_mentioned = True
+                    break
+        
+        # Check message text for bot username
+        if not bot_mentioned and update.message and update.message.text:
+            bot_username = context.bot.username
+            if bot_username and f"@{bot_username}" in update.message.text:
+                bot_mentioned = True
+        
+        if bot_mentioned:
+            # Bot was mentioned, set this chat as destination
+            chat = update.effective_chat
+            if chat.type in ['channel', 'supergroup', 'group']:
+                config['destination_channel'] = chat.id
+                save_config(config)
+                await update.message.reply_text(
+                    f"✅ This {chat.type} has been set as the destination channel!\n\n"
+                    "Now you can set a source channel using:\n"
+                    "• /setsource @channelname\n"
+                    "• /setsource t.me/channelname\n"
+                    "• /setsource -1001234567890"
+                )
+                return
 
         # Handle message forwarding
         if update.effective_chat.id != config.get('source_channel'):
